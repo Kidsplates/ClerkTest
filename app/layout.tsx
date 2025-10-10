@@ -1,6 +1,6 @@
-// app/layout.tsx
-import { ClerkProvider, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
+import Header from "@/components/Header"; // ← 追加
 
 export const metadata: Metadata = {
   title: "Auth Minimal",
@@ -12,16 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider>
       <html lang="ja">
         <body style={{ maxWidth: 720, margin: "40px auto", fontFamily: "sans-serif" }}>
-          {/* ここが新しく追加したヘッダー部分 */}
-          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h1>Auth Minimal</h1>
-            <SignedIn>
-              {/* ログイン中だけ表示されるユーザーボタン */}
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
-          </header>
-
-          {/* ページのメインコンテンツ */}
+          <Header />         {/* ← Client Component をサーバーレイアウトから呼ぶ */}
           {children}
         </body>
       </html>
