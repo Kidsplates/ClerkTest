@@ -7,12 +7,15 @@ export const metadata: Metadata = {
   description: "Clerk x Next.js minimal",
 };
 
+import RouteLoader from "@/components/RouteLoader";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
       <html lang="ja">
         <body style={{ maxWidth: 720, margin: "40px auto", fontFamily: "sans-serif" }}>
-          <Header />         {/* ← Client Component をサーバーレイアウトから呼ぶ */}
+          <Header />
+          <RouteLoader /> {/* ← 常駐ローディング */}
           {children}
         </body>
       </html>
