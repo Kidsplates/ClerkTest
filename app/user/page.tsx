@@ -3,6 +3,8 @@
 import { useUser } from "@clerk/nextjs";
 import { PLANS, asPlanKey, PlanKey } from "@/lib/plans";
 import { useState } from "react";
+import DebugUserJson from "@/components/DebugUserJson";
+
 
 export default function UserPage() {
   const { user } = useUser();
@@ -41,6 +43,9 @@ export default function UserPage() {
           </div>
         ))}
       </div>
+        // ...既存のUserPage JSXの最後に
+        <DebugUserJson />
     </main>
   );
 }
+
