@@ -1,31 +1,37 @@
-﻿import Stripe from "stripe";
-import { auth } from "@clerk/nextjs/server";
+﻿import { auth, clerkClient } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!); // ← apiVersion を消す
+type Plan = "FREE" | "PLUS" | "PRO";
 
 export async function POST(req: Request) {
-  const { userId } = await auth();  // ← await 必須
-  if (!userId) return new Response("Unauthorized", { status: 401 });
+  try {
+    const { userId } = await auth(); // ← await 必須
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { plan } = await req.json() as { plan: "PLUS" | "PRO" | "FREE" };
+    const { plan } = (await req.json()) as { plan: Plan };
+    if (plan !== "FREE" && plan !== "PLUS" && plan !== "PRO") {
+      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    }
 
-  const prices: Record<"PLUS" | "PRO", string> = {
-    PLUS: process.env.STRIPE_PRICE_ID_PLUS!,
-    PRO:  process.env.STRIPE_PRICE_ID_PRO!,
-  };
-  if (plan === "FREE") {
-    // FREEへのダウングレードは課金不要。直接マイページに戻すなど。
-    return Response.json({ url: `${process.env.NEXT_PUBLIC_BASE_URL}/user?plan=free` });
+    // ✅ clerkClient() を await して実体を取得
+    const client = await clerkClient();
+
+    // v6 では updateUser を使って publicMetadata を更新
+    await client.users.updateUser(userId, {
+      publicMetadata: { plan },
+    });
+
+    return NextResponse.json({
+      message: `Plan changed to ${plan}`,
+      url: "/user?success=true",
+    });
+  } catch (e: any) {
+    console.error("Mock plan change error:", e);
+    return NextResponse.json(
+      { error: e?.message ?? "Internal error" },
+      { status: 500 }
+    );
   }
-
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ["card"],
-    mode: "subscription",
-    line_items: [{ price: prices[plan], quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/user?success=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/user?canceled=true`,
-    metadata: { userId, plan },
-  });
-
-  return Response.json({ url: session.url });
 }
