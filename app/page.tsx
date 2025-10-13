@@ -1,20 +1,25 @@
-// app/page.tsx（Server Component）
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+"use client";
+
+import { SignedOut, SignedIn, SignInButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
 
-export default async function Home() {
-  const { userId } = await auth();
-  if (userId) redirect("/user");  // ログイン済みは即マイページへ
-
+export default function HomePage() {
   return (
-    <main style={{ padding: 24 }}>
+    <main>
       <h2>Auth Minimal</h2>
       <p>トップページです。</p>
-      <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-        <Link href="/sign-in">ログイン</Link>
-        <Link href="/sign-up">サインアップ</Link>
-      </div>
+
+      <SignedOut>
+        {/* モーダルで確実に UI を表示させる */}
+        <div style={{ display: "flex", gap: 16 }}>
+          <SignInButton mode="modal" />
+          <SignUpButton mode="modal" />
+        </div>
+      </SignedOut>
+
+      <SignedIn>
+        <Link href="/user">マイページへ</Link>
+      </SignedIn>
     </main>
   );
 }
