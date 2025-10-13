@@ -1,4 +1,5 @@
 ﻿import { currentUser } from "@clerk/nextjs/server";
+import UsernameEditor from "./_components/UsernameEditor";
 import PlanChooser from "./plan-chooser";
 
 const PLANS = {
@@ -20,6 +21,8 @@ export default async function UserPage() {
       <p>
         現在のプラン: <strong>{plan}</strong>
       </p>
+
+      <UsernameEditor />
 
       <div style={{ marginTop: 20 }}>
         <PlanChooser current={plan} />
