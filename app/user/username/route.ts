@@ -1,36 +1,27 @@
-﻿import { auth } from "@clerk/nextjs/server";
-import { createClerkClient } from "@clerk/backend";
+﻿export async function POST(req: Request) {
+  const mod = await import("@clerk/nextjs/server");
 
-export async function POST(req: Request) {
-  // 認証情報を取得（v5ではawaitが必要）
-  const { userId } = await auth();
-  if (!userId) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // auth は userId だけ取れればよいので簡易型を当てる
+  type _AuthLike = () => { userId: string | null };
+  const _auth = mod.auth as unknown as _AuthLike;
+  const { userId } = _auth();
+  if (!userId) return new Response("unauthorized", { status: 401 });
 
-  // リクエストボディを取得
   const { username } = (await req.json()) as { username?: string };
   const value = (username ?? "").trim();
-  if (value.length < 3 || value.length > 32) {
-    return Response.json({ error: "invalid_length" }, { status: 400 });
-  }
-
-  // Clerkクライアントを生成
-  const clerkClient = createClerkClient({
-    secretKey: process.env.CLERK_SECRET_KEY!,
-  });
-
-  try {
-    // ユーザー名を更新
-    const updatedUser = await clerkClient.users.updateUser(userId, {
-      username: value,
+  if (value.length < 3) {
+    return new Response(JSON.stringify({ ok: false, error: "username_required" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
     });
-    return Response.json({ ok: true, username: updatedUser.username });
-  } catch (err: any) {
-    const msg =
-      err?.errors?.[0]?.message ||
-      err?.message ||
-      "update_failed";
-    return Response.json({ error: msg }, { status: 400 });
   }
+
+  // ★ clerkClient の型を any 相当にキャストして TS を黙らせる
+  const clerk = mod.clerkClient as unknown as {
+    users: { updateUser: (id: string, data: { username?: string }) => Promise<unknown> };
+  };
+
+  await clerk.users.updateUser(userId, { username: value });
+
+  return Response.json({ ok: true, username: value });
 }

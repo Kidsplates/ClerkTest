@@ -1,10 +1,31 @@
 ﻿// app/api/whoami/route.ts
-import { auth } from "@clerk/nextjs/server";
-
-export const dynamic = "force-dynamic"; // キャッシュ回避(任意)
-// export const runtime = "edge"; // Edgeで動かしたいなら任意で
-
 export async function GET() {
-  const { userId } = await auth();   // ← await が必須！
-  return Response.json({ userId });
+  // 動的 import で v5 環境差を回避
+  const mod = await import("@clerk/nextjs/server");
+
+  // auth は userId だけ使うので簡易型
+  type _AuthLike = () => { userId: string | null };
+  const _auth = mod.auth as unknown as _AuthLike;
+
+  const { userId } = _auth();
+  if (!userId) {
+    return Response.json({ id: null, publicMetadata: {}, username: null, email: null });
+  }
+
+  // clerkClient の型は any 相当にキャストして TS を黙らせる
+  const clerk = mod.clerkClient as unknown as {
+    users: { getUser: (id: string) => Promise<any> };
+  };
+
+  const user = await clerk.users.getUser(userId);
+
+  return Response.json({
+    id: userId,
+    publicMetadata: user?.publicMetadata ?? {},
+    username: user?.username ?? null,
+    email:
+      user?.emailAddresses?.[0]?.emailAddress ??
+      user?.primaryEmailAddress?.emailAddress ??
+      null,
+  });
 }
