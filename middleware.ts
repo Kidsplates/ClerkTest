@@ -1,7 +1,6 @@
 ﻿// middleware.ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// 認証不要のルート
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
@@ -10,9 +9,10 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware((auth, req) => {
   if (isPublicRoute(req)) return;
-  auth.protect(); // ← auth() ではなく auth.protect()
+  auth.protect();
 });
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  // 静的ファイルと webhook は除外
+  matcher: ["/((?!_next|.*\\..*|api/stripe/webhook).*)"],
 };
