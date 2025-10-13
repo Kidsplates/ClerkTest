@@ -1,17 +1,7 @@
-﻿"use client";
-
-import { SignIn } from "@clerk/nextjs";
-import Link from "next/link";
+﻿import { SignIn } from "@clerk/nextjs";
 
 export default function Page() {
   return (
-    <main style={{ padding: 20, textAlign: "center" }}>
-      <SignIn path="/sign-in" routing="path" signUpUrl="/sign-up" afterSignInUrl="/user"  afterSignUpUrl="/user"/>
-      <div style={{ marginTop: 16 }}>
-        <small>
-          パスワードを忘れた？ <Link href="/forgot-password">こちらから再設定</Link>
-        </small>
-      </div>
-    </main>
+    <SignIn routing="path" path="/sign-in" afterSignInUrl="/user" />
   );
 }

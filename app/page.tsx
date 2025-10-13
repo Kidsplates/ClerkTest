@@ -1,25 +1,18 @@
-"use client";
-
-import { SignedOut, SignedIn, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
-export default function HomePage() {
+export default async function Home() {
+  const { userId } = await auth();
+  if (userId) redirect("/user");
+
   return (
-    <main>
+    <main style={{ maxWidth: 720, margin: "40px auto" }}>
       <h2>Auth Minimal</h2>
       <p>トップページです。</p>
-
-      <SignedOut>
-        {/* モーダルで確実に UI を表示させる */}
-        <div style={{ display: "flex", gap: 16 }}>
-          <SignInButton mode="modal" />
-          <SignUpButton mode="modal" />
-        </div>
-      </SignedOut>
-
-      <SignedIn>
-        <Link href="/user">マイページへ</Link>
-      </SignedIn>
+      <p>
+        <Link href="/sign-in">ログイン</Link>・<Link href="/sign-up">サインアップ</Link>
+      </p>
     </main>
   );
 }
