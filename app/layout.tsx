@@ -8,8 +8,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="ja">
         <body style={{ maxWidth: 720, margin: "40px auto", fontFamily: "sans-serif" }}>
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h1>Auth Minimal</h1>
-            {/* ログイン中だけ右上にユーザーメニュー */}
+            {/* ここだけ変更 */}
+            <h1>Clerkでのアカウント管理テストサイト</h1>
             <SignedIn>
               <UserButton afterSignOutUrl="/" />
             </SignedIn>
