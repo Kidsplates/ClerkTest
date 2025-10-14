@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@clerk/nextjs": "6.33.3",
-    "next": "15.5.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "next": "15.5.5",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "stripe": "^19.1.0"
   },
   "devDependencies": {
@@ -24,7 +24,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "5.9.3"
   },
   "engines": {
     "node": ">=20.0.0"

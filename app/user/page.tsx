@@ -1,22 +1,21 @@
 ﻿import { currentUser } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import UserDashboard from "./UserDashboard";
 
-export default async function UserPage() {
-  let user = null as Awaited<ReturnType<typeof currentUser>> | null;
+export default async function Page() {
+  const user = await currentUser();
+  if (!user) return <div className="p-8 text-center">ログインしてください。</div>;
 
-  try {
-    user = await currentUser();
-  } catch (e) {
-    console.error("currentUser() failed on server:", e);
-    return (
-      <main style={{maxWidth:720,margin:"40px auto"}}>
-        <h1>マイページ</h1>
-        <p>サーバー側でユーザー取得に失敗しました。環境変数 `CLERK_SECRET_KEY` とドメイン設定を確認してください。</p>
-      </main>
-    );
-  }
+  const plan = (user.publicMetadata?.plan as "free" | "plus" | "pro") ?? "free";
+  const points = (user.publicMetadata?.points as number) ?? 0;
 
-  if (!user) redirect("/sign-in");
-
-  // …以降は今の表示ロジックでOK
+  return (
+    <UserDashboard
+      user={{
+        username: user.username ?? null,
+        emailAddresses: user.emailAddresses.map(e => ({ emailAddress: e.emailAddress })),
+      }}
+      plan={plan}
+      points={points}
+    />
+  );
 }
