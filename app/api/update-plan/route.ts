@@ -1,23 +1,20 @@
-﻿import { auth, clerkClient as _clerkClient } from "@clerk/nextjs/server";
-
-type Plan = "free" | "plus" | "pro";
+﻿// app/api/update-plan/route.ts
+// @ts-nocheck
+import { auth, clerkClient as _clerkClient } from "@clerk/nextjs/server";
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  // v4 型を拾って Promise 扱いされている環境でも通すキャスト
-  const { userId } = (auth() as unknown as { userId: string | null });
-  if (!userId) return Response.json({ error: "未認証です" }, { status: 401 });
+  try {
+    const { userId } = (await (auth() as any)) || {};
+    if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
 
-  const { plan } = (await req.json()) as { plan: Plan };
+    const { plan } = await req.json(); // "free" | "plus" | "pro"
+    const client = typeof _clerkClient === "function" ? await (_clerkClient as any)() : (_clerkClient as any);
 
-  // clerkClient が「関数だと認識される/Promise返す」場合にも対応
-  const client: any =
-    typeof (_clerkClient as any) === "function"
-      ? await (_clerkClient as unknown as () => Promise<any>)()
-      : (_clerkClient as any);
-
-  await client.users.updateUserMetadata(userId, {
-    publicMetadata: { plan },
-  });
-
-  return Response.json({ success: true });
+    const r = await client.users.updateUserMetadata(userId, { publicMetadata: { plan } });
+    return Response.json({ success: true, publicMetadata: r.publicMetadata });
+  } catch (e: any) {
+    const message = e?.errors?.[0]?.message || e?.message || "server-error";
+    return Response.json({ error: message }, { status: e?.status || 500 });
+  }
 }

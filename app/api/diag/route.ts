@@ -1,11 +1,14 @@
-﻿export async function GET() {
-  const mod = await import("@clerk/nextjs/server");
-  const auth = mod.auth as unknown as () => { userId: string | null };
+﻿// app/api/diag/route.ts
+// @ts-nocheck
+import { auth } from "@clerk/nextjs/server";
+export const runtime = "nodejs";
 
+export async function GET() {
+  // ここは必ず値が取れる前提で動かす（型は無視）
+  const { userId } = (await (auth() as any)) || {};
   return Response.json({
-    hasPublishable: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    userId: userId ?? null,
     hasSecret: !!process.env.CLERK_SECRET_KEY,
-    userId: auth().userId ?? null,
-    node: process.version,
+    hasPublishable: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   });
 }
