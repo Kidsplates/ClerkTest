@@ -1,6 +1,5 @@
-﻿// app/sign-in/[[...index]]/page.tsx
-import { SignIn } from "@clerk/nextjs";
+﻿import { SignIn } from "@clerk/nextjs";
 
 export default function Page() {
-  return <SignIn />;
+  return <SignIn afterSignInUrl="/user" redirectUrl="/user" />;
 }
