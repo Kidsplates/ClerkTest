@@ -1,7 +1,6 @@
-﻿import { SignIn } from "@clerk/nextjs";
+﻿// app/sign-in/[[...index]]/page.tsx
+import { SignIn } from "@clerk/nextjs";
 
 export default function Page() {
-  return (
-    <SignIn routing="path" path="/sign-in" afterSignInUrl="/user" />
-  );
+  return <SignIn />;
 }
