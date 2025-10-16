@@ -1,33 +1,50 @@
-﻿// app/api/unity/me/route.ts
-export const runtime = "nodejs";
+﻿// /app/api/unity/me/route.ts
+export const runtime = 'nodejs';        // ← 念のためEdge回避
+export const dynamic = 'force-dynamic'; // ← devでもキャッシュさせない
 
-function cors(h: HeadersInit = {}) {
-  return {
-    "access-control-allow-origin": "*",
-    "access-control-allow-headers": "authorization, content-type",
-    ...h,
-  };
-}
+import { NextResponse } from 'next/server';
+import { auth, verifyToken, clerkClient } from '@clerk/nextjs/server';
 
-export async function OPTIONS() {
-  return new Response(null, { headers: cors() });
-}
+export async function GET(req: Request) {
+  const authz = req.headers.get('authorization') ?? req.headers.get('Authorization');
+  const sessionHeader = req.headers.get('x-clerk-session') ?? req.headers.get('X-Clerk-Session');
 
-export async function GET() {
-  // ← 動的に import
-  const { auth, clerkClient } = await import("@clerk/nextjs/server");
+  let jwt: string | null = null;
+  if (authz?.startsWith('Bearer ')) jwt = authz.slice('Bearer '.length).trim();
 
-  const { userId } = await auth();
-  if (!userId) return new Response("Unauthorized", { status: 401, headers: cors() });
+  let userId: string | null = null;
+  try {
+    if (jwt) {
+      const verified = await (verifyToken as any)(jwt, { template: 'unity' } as any);
+      userId = (verified as any).sub ?? null;
+    } else if (sessionHeader) {
+      const clientMaybeFn = clerkClient as unknown as (() => Promise<any>) | any;
+      const client = typeof clientMaybeFn === 'function' ? await clientMaybeFn() : clientMaybeFn;
+      const sess = await client.sessions.getSession(sessionHeader);
+      if (!sess || sess.status !== 'active') {
+        return NextResponse.json({ error: 'session not active' }, { status: 401 });
+      }
+      userId = sess.userId ?? null;
+    } else {
+      const a = await auth(); // ブラウザ直叩きの保険
+      userId = a?.userId ?? null;
+    }
+  } catch {
+    return NextResponse.json({ error: 'invalid auth' }, { status: 401 });
+  }
 
-  // ← 関数を “呼ぶ” のがポイント
-  const client = await clerkClient();
+  if (!userId) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const clientMaybeFn = clerkClient as unknown as (() => Promise<any>) | any;
+  const client = typeof clientMaybeFn === 'function' ? await clientMaybeFn() : clientMaybeFn;
   const user = await client.users.getUser(userId);
 
-  const email = user.emailAddresses?.[0]?.emailAddress ?? null;
-  const username = user.username ?? user.firstName ?? null;
-  const plan = (user.publicMetadata?.plan as string) ?? "free";
-  const points = Number((user.publicMetadata as any)?.points ?? 0);
+  const email = user.emailAddresses?.[0]?.emailAddress ?? '';
+  const username = user.username ?? '';
+  const plan = (user.publicMetadata?.plan as string) ?? 'free';
+  const points = (user.publicMetadata?.points as number) ?? 0;
 
-  return Response.json({ userId, email, username, plan, points }, { headers: cors() });
+  return NextResponse.json({ userId, email, username, plan, points });
 }

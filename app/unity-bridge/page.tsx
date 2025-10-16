@@ -1,78 +1,64 @@
-﻿'use client';
-
+﻿// /app/unity-bridge/page.tsx
+'use client';
 import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useAuth, useSession, useUser } from '@clerk/nextjs';
 
-export const dynamic = 'force-dynamic';
-
-function isUnityWebView(): boolean {
-  if (typeof window === 'undefined') return false;
-  const w = window as any;
-  const ua = (navigator.userAgent || '').toLowerCase();
-  // Vuplex / Windows WebView / iOS WKWebView / Android webview などを緩く検出
-  return (
-    /vuplex|unity|webview/.test(ua) ||
-    !!w.chrome?.webview ||                      // Edge WebView2
-    !!w.webkit?.messageHandlers ||              // iOS
-    !!w.Unity                                  // Unity が置くグローバル（あれば）
-  );
-}
-
-export default function UnityBridge() {
+export default function UnityBridgePage() {
   const router = useRouter();
-  const sp = useSearchParams();
-  const { isSignedIn, getToken } = useAuth();
-
-  // フォールバック先（なければ /user にする）
-  const fallback = sp.get('fallback') ?? '/user';
+  const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded: sessLoaded, session } = useSession();
+  const { isLoaded: userLoaded, user } = useUser();
 
   useEffect(() => {
-    let cancelled = false;
+    if (!authLoaded || !sessLoaded || !userLoaded) return;
 
     (async () => {
-      // サインイン済みでないなら sign-in に戻す
-      if (!isSignedIn) {
-        if (!cancelled) router.replace('/sign-in');
-        return;
+      // 1) Clerkサインイン完了待ち
+      for (let i = 0; i < 30 && !isSignedIn; i++) {
+        await new Promise(r => setTimeout(r, 100));
       }
 
-      // Unity でなければ、即フォールバックに進む（ブラウザ単体で止まらない）
-      if (!isUnityWebView()) {
-        if (!cancelled) router.replace(fallback);
-        return;
+      // 2) JWT (template: 'unity') を数回リトライ取得
+      let token: string | null = null;
+      for (let i = 0; i < 6; i++) {
+        try {
+          token = (await getToken?.({ template: 'unity' })) ?? null;
+          if (token) break;
+        } catch {}
+        await new Promise(r => setTimeout(r, 250));
       }
 
-      // --- ここから Unity WebView 専用フロー ---
-      try {
-        // 必要なら Clerk のセッショントークンを取得して Unity へ postMessage
-        const token = await getToken({ template: undefined }).catch(() => null);
-        const payload = { type: 'clerk:signin:complete', token };
+      // 3) Unityに渡す最小プロフィール（即時UI反映用）
+      const profile = user
+        ? {
+            userId: user.id,
+            email: user.primaryEmailAddress?.emailAddress ?? '',
+            username: user.username ?? '',
+            plan: (user.publicMetadata?.plan as string) ?? 'free',
+            points: (user.publicMetadata?.points as number) ?? 0,
+          }
+        : null;
 
-        // 代表的なブリッジに送る（環境に応じてどれかが届く）
-        const w: any = window;
-        try { w.chrome?.webview?.postMessage(payload); } catch {}
-        try { w.webkit?.messageHandlers?.unityControl?.postMessage(payload); } catch {}
-        try { w.parent?.postMessage(payload, '*'); } catch {}
+      const payload = {
+        type: 'clerk:signin:complete' as const,
+        token: token ?? null,                    // Bearer 用（nullでもOK）
+        sessionId: session?.id ?? null,          // 保険
+        user: profile,                           // これで即時UI更新できる
+        timestamp: Date.now(),
+        source: 'unity-bridge',
+      };
 
-        // 少し待って（Unity 側で処理させて）フォールバックへ
-        setTimeout(() => {
-          if (!cancelled) router.replace(fallback);
-        }, 300);
-      } catch {
-        if (!cancelled) router.replace(fallback);
-      }
+      const w = window as any;
+      if (w.vuplex?.postMessage) w.vuplex.postMessage(payload);
+      else if (window.chrome?.webview?.postMessage) window.chrome.webview.postMessage(payload);
+      else if (window.webkit?.messageHandlers?.unityControl?.postMessage) window.webkit.messageHandlers.unityControl.postMessage(payload);
+      else if (window.parent) window.parent.postMessage(payload as any, '*');
+
+      await new Promise(r => setTimeout(r, 1000));
+      router.replace('/user');
     })();
+  }, [authLoaded, sessLoaded, userLoaded, isSignedIn, getToken, session, user, router]);
 
-    return () => { cancelled = true; };
-  }, [isSignedIn, getToken, router, fallback]);
-
-  return (
-    <div style={{ padding: 24 }}>
-      <p>Finishing sign-in…</p>
-      <p style={{ opacity: 0.6, fontSize: 12 }}>
-        If this takes long, <a href={fallback}>continue</a>.
-      </p>
-    </div>
-  );
+  return <main style={{ textAlign: 'center', marginTop: '30vh' }}>Finishing sign-in…</main>;
 }
