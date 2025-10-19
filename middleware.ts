@@ -1,18 +1,19 @@
-﻿// middleware.ts
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+﻿import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/unity-login(.*)",
+  "/unity-bridge(.*)",
 ]);
 
-export default clerkMiddleware((auth, req) => {
+export default clerkMiddleware(async (authFn, req) => {
   if (isPublicRoute(req)) return;
-  auth.protect();
+  const a = await authFn();
+  if (!a.userId) return a.redirectToSignIn();
 });
 
 export const config = {
-  // 静的ファイルと webhook は除外
-  matcher: ["/((?!_next|.*\\..*|api/stripe/webhook).*)"],
+  matcher: ["/((?!_next/|.*\\..*).*)", "/(api|trpc)(.*)"],
 };
