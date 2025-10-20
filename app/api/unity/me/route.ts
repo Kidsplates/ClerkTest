@@ -1,50 +1,60 @@
-﻿// /app/api/unity/me/route.ts
-export const runtime = 'nodejs';        // ← 念のためEdge回避
-export const dynamic = 'force-dynamic'; // ← devでもキャッシュさせない
+﻿// app/api/unity/me/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { auth, clerkClient as _clerkClient } from "@clerk/nextjs/server";
 
-import { NextResponse } from 'next/server';
-import { auth, verifyToken, clerkClient } from '@clerk/nextjs/server';
+export const runtime = "nodejs";
 
-export async function GET(req: Request) {
-  const authz = req.headers.get('authorization') ?? req.headers.get('Authorization');
-  const sessionHeader = req.headers.get('x-clerk-session') ?? req.headers.get('X-Clerk-Session');
 
-  let jwt: string | null = null;
-  if (authz?.startsWith('Bearer ')) jwt = authz.slice('Bearer '.length).trim();
+function toDto(user: any) {
+  const email =
+    user?.primaryEmailAddress?.emailAddress ??
+    user?.emailAddresses?.[0]?.emailAddress ??
+    null;
 
-  let userId: string | null = null;
-  try {
-    if (jwt) {
-      const verified = await (verifyToken as any)(jwt, { template: 'unity' } as any);
-      userId = (verified as any).sub ?? null;
-    } else if (sessionHeader) {
-      const clientMaybeFn = clerkClient as unknown as (() => Promise<any>) | any;
-      const client = typeof clientMaybeFn === 'function' ? await clientMaybeFn() : clientMaybeFn;
-      const sess = await client.sessions.getSession(sessionHeader);
-      if (!sess || sess.status !== 'active') {
-        return NextResponse.json({ error: 'session not active' }, { status: 401 });
+  return {
+    userId: user?.id ?? null,
+    email,
+    username: user?.username ?? null,
+    plan: user?.publicMetadata?.plan ?? "free",
+    points: user?.publicMetadata?.points ?? 0,
+  };
+}
+
+export async function GET(req: NextRequest) {
+  // v4/v5 両対応で clerkClient を取得（v5は関数）
+  const clerk =
+    typeof _clerkClient === "function" ? await _clerkClient() : _clerkClient;
+
+console.log("[/api/unity/me] headerSessionId=", 
+  req.headers.get("x-clerk-session") ||
+  req.headers.get("clerk-session-id") ||
+  req.headers.get("x-clerk-session-id")
+);
+
+  // 1) Unity から送られるセッションID ヘッダを優先（header名は小文字で来る想定）
+  const headerSessionId =
+    req.headers.get("x-clerk-session") ||
+    req.headers.get("clerk-session-id") ||
+    req.headers.get("x-clerk-session-id");
+
+  if (headerSessionId) {
+    try {
+      const sess = await clerk.sessions.getSession(headerSessionId);
+      if (sess?.userId) {
+        const user = await clerk.users.getUser(sess.userId);
+        return NextResponse.json(toDto(user));
       }
-      userId = sess.userId ?? null;
-    } else {
-      const a = await auth(); // ブラウザ直叩きの保険
-      userId = a?.userId ?? null;
+    } catch {
+      // 失敗したら cookie 認証にフォールバック
     }
-  } catch {
-    return NextResponse.json({ error: 'invalid auth' }, { status: 401 });
   }
 
-  if (!userId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  // 2) Cookie ベース（ブラウザから直接叩いた時）
+  const { userId } = await auth();
+  if (userId) {
+    const user = await clerk.users.getUser(userId);
+    return NextResponse.json(toDto(user));
   }
 
-  const clientMaybeFn = clerkClient as unknown as (() => Promise<any>) | any;
-  const client = typeof clientMaybeFn === 'function' ? await clientMaybeFn() : clientMaybeFn;
-  const user = await client.users.getUser(userId);
-
-  const email = user.emailAddresses?.[0]?.emailAddress ?? '';
-  const username = user.username ?? '';
-  const plan = (user.publicMetadata?.plan as string) ?? 'free';
-  const points = (user.publicMetadata?.points as number) ?? 0;
-
-  return NextResponse.json({ userId, email, username, plan, points });
+  return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }

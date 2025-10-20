@@ -1,4 +1,5 @@
-﻿import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+﻿// middleware.ts（公開ルートに /api/unity/me を追加）
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -6,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/unity-login(.*)",
   "/unity-bridge(.*)",
+  "/api/unity/me",    // ← 追加！ Unity からの /me は公開にして自前で判定
 ]);
 
 export default clerkMiddleware(async (authFn, req) => {
